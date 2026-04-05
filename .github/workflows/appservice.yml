@@ -1,31 +1,36 @@
-name: Web Static Web App Deployment
+name: Docker to Azure App Service Deployment
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+    paths:
+      - 'app/**'
+      - 'iac/**'
 
-# TAMBIÉN AQUÍ PARA QUE EL LOGIN NO TRONE
+# ESTO ES LO QUE ARREGLA EL ERROR DE FEDERATED TOKEN
 permissions:
   id-token: write
   contents: read
 
 env:
+  # --- PARA TERRAFORM (IAC) ---
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
+  # --- PARA EL DESPLIEGUE (DOCKER) ---
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  AZURE_REGISTRY_SERVER: ${{ secrets.AZURE_REGISTRY_SERVER }}
+  AZURE_REGISTRY_USERNAME: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+  AZURE_REGISTRY_PASSWORD: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+
 jobs:
-  terraform_infrastructure:
-    name: 'Terraform Infrastructure'
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout del código
         uses: actions/checkout@v4
 
       - name: Log in to Azure
@@ -35,6 +40,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # ESTO ES CLAVE: Le dice a Azure que use el Secret y no el token nuevo
           auth-type: 'SERVICE_PRINCIPAL'
 
       - name: Setup Terraform
@@ -46,24 +52,20 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-  build_and_deploy_job:
-    name: 'Build and Deploy Job'
-    runs-on: ubuntu-latest
-    needs: terraform_infrastructure
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Log in to ACR
+        uses: azure/docker-login@v1
         with:
-          submodules: true
+          login-server: ${{ env.AZURE_REGISTRY_SERVER }}
+          username: ${{ env.AZURE_REGISTRY_USERNAME }}
+          password: ${{ env.AZURE_REGISTRY_PASSWORD }}
 
-      - name: Build And Deploy
-        id: builddeploy
-        uses: Azure/static-web-apps-deploy@v1
+      - name: Build and push container image
+        run: |
+          docker build app/ -t ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
+          docker push ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "app/src" 
-          api_location: "" 
-          output_location: ""
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          images: ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
