@@ -4,23 +4,15 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'app/**'
-      - 'iac/**'
 
-# ESTO SOLUCIONA EL ERROR DE FEDERATED TOKEN (OIDC)
 permissions:
-  id-token: write
   contents: read
 
 env:
-  # --- PARA TERRAFORM (IAC) ---
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-
-  # --- PARA EL DESPLIEGUE (DOCKER) ---
   AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
   AZURE_REGISTRY_SERVER: ${{ secrets.AZURE_REGISTRY_SERVER }}
   AZURE_REGISTRY_USERNAME: ${{ secrets.AZURE_REGISTRY_USERNAME }}
@@ -36,12 +28,8 @@ jobs:
       - name: Log in to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          # ESTO OBLIGA A USAR EL SECRET Y NO OIDC
-          auth-type: 'SERVICE_PRINCIPAL'
+          # USAMOS EL JSON COMPLETO, ESTO EVITA EL ERROR DE OIDC
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
