@@ -8,7 +8,7 @@ on:
       - 'app/**'
       - 'iac/**'
 
-# ESTO ES LO QUE ARREGLA EL ERROR DE FEDERATED TOKEN
+# ESTO SOLUCIONA EL ERROR DE FEDERATED TOKEN (OIDC)
 permissions:
   id-token: write
   contents: read
@@ -40,7 +40,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          # ESTO ES CLAVE: Le dice a Azure que use el Secret y no el token nuevo
+          # ESTO OBLIGA A USAR EL SECRET Y NO OIDC
           auth-type: 'SERVICE_PRINCIPAL'
 
       - name: Setup Terraform
