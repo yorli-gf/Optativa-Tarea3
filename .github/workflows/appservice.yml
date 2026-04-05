@@ -7,16 +7,12 @@ on:
     paths:
       - 'app/**'
       - 'iac/**'
-      - '.github/workflows/appservice.yml'
 
 env:
-  # --- CREDENCIALES PARA TERRAFORM (IAC) ---
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-
-  # --- VARIABLES PARA EL DESPLIEGUE ---
   AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
   AZURE_REGISTRY_SERVER: ${{ secrets.AZURE_REGISTRY_SERVER }}
   AZURE_REGISTRY_USERNAME: ${{ secrets.AZURE_REGISTRY_USERNAME }}
@@ -37,7 +33,6 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      # --- PASO DE TERRAFORM (IAC) ---
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -47,7 +42,6 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-      # --- PASO DE DOCKER ---
       - name: Log in to ACR
         uses: azure/docker-login@v1
         with:
@@ -60,13 +54,8 @@ jobs:
           docker build app/ -t ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
           docker push ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
 
-      # --- DESPLIEGUE FINAL ---
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           images: ${{ env.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
-
-      - name: Logout from Azure
-        run: az logoutom Azure
-        run: az logout
