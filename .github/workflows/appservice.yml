@@ -37,8 +37,13 @@ jobs:
 
       - name: Build and push container image
         run: |
-          docker build app/ -t ${{ secrets.AZURE_REGISTRY_SERVER }}/${{ secrets.AZURE_WEBAPP_NAME }}:${{ github.sha }}
-          docker push ${{ secrets.AZURE_REGISTRY_SERVER }}/${{ env.AZURE_WEBAPP_NAME }}:${{ github.sha }}
+          # Definimos el nombre completo de la imagen una sola vez para evitar errores de formato
+          IMAGE_NAME=${{ secrets.AZURE_REGISTRY_SERVER }}/${{ secrets.AZURE_WEBAPP_NAME }}:${{ github.sha }}
+          
+          echo "Construyendo imagen: $IMAGE_NAME"
+          
+          docker build app/ -t $IMAGE_NAME
+          docker push $IMAGE_NAME
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
